@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.1.0",
+        "version": "0.1.1",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -329,7 +329,7 @@ class DefaultExtension extends MProvider {
                 "key": "stremio_strict_ios_streams",
                 "switchPreferenceCompat": {
                     "title": "Prefer iOS-safe streams",
-                    "summary": "Only show likely playable HLS/MP4/M4V/MOV direct streams.",
+                    "summary": "Block obvious non-video files while allowing direct HTTPS streams.",
                     "value": true
                 }
             },
@@ -544,11 +544,14 @@ class DefaultExtension extends MProvider {
     }
 
     videoFromStream(stream, addonName, settings) {
-        if (!stream || stream.infoHash || stream.fileIdx !== undefined || stream.magnet || stream.nzbUrl || stream.rarUrls || stream.zipUrls || stream.externalUrl) {
+        if (!stream || stream.magnet || stream.nzbUrl || stream.rarUrls || stream.zipUrls || stream.externalUrl) {
+            return null;
+        }
+        if (!stream.url && (stream.infoHash || stream.fileIdx !== undefined)) {
             return null;
         }
         const url = this.absoluteUrl(stream.url || "");
-        if (!this.isPlayableDirectUrl(url, settings)) {
+        if (!this.isPlayableDirectUrl(url, settings, stream)) {
             return null;
         }
 
@@ -566,12 +569,12 @@ class DefaultExtension extends MProvider {
         return video;
     }
 
-    isPlayableDirectUrl(url, settings) {
+    isPlayableDirectUrl(url, settings, stream) {
         if (!url || this.isLocalUrl(url)) {
             return false;
         }
         const lower = String(url).toLowerCase();
-        if (lower.indexOf("magnet:") === 0 || lower.indexOf("torrent") !== -1 && lower.indexOf(".torrent") !== -1) {
+        if (lower.indexOf("magnet:") === 0 || lower.indexOf(".torrent") !== -1) {
             return false;
         }
         if (lower.indexOf("https://") !== 0) {
@@ -582,14 +585,25 @@ class DefaultExtension extends MProvider {
         if (!settings.strictIosStreams) {
             return true;
         }
-        return lower.indexOf(".m3u8") !== -1 ||
-            lower.indexOf(".mp4") !== -1 ||
-            lower.indexOf(".m4v") !== -1 ||
-            lower.indexOf(".mov") !== -1 ||
-            lower.indexOf("/hls") !== -1 ||
-            lower.indexOf("playlist") !== -1 ||
-            lower.indexOf("master") !== -1 ||
-            lower.indexOf("manifest") !== -1;
+
+        const path = lower.split("?")[0].split("#")[0];
+        if (/\.(zip|rar|7z|tar|gz|nzb|torrent|srt|vtt|ass|ssa|html?)$/i.test(path)) {
+            return false;
+        }
+
+        const hints = stream && stream.behaviorHints ? stream.behaviorHints : {};
+        if (hints.notWebReady === true) {
+            return lower.indexOf(".m3u8") !== -1 ||
+                lower.indexOf(".mp4") !== -1 ||
+                lower.indexOf(".m4v") !== -1 ||
+                lower.indexOf(".mov") !== -1 ||
+                lower.indexOf("/hls") !== -1 ||
+                lower.indexOf("playlist") !== -1 ||
+                lower.indexOf("master") !== -1 ||
+                lower.indexOf("manifest") !== -1;
+        }
+
+        return true;
     }
 
     streamQuality(stream, addonName, url) {

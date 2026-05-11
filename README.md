@@ -36,9 +36,16 @@ https://raw.githubusercontent.com/scanplayext/stremio-mangayomi/main/anime_index
 
 ## Important iOS Notes
 
-The bridge only exposes direct HTTP(S) `stream.url` values. It blocks torrents, magnets, `infoHash`, `externalUrl`, local/private network URLs, `localhost`, and Android proxy patterns.
+The bridge only exposes direct HTTP(S) `stream.url` values. It blocks torrent-only streams, magnets, `externalUrl`, local/private network URLs, `localhost`, and Android proxy patterns.
 
-For iPhone, use Stremio addons that return direct playable URLs such as `https://...m3u8`, `https://...mp4`, `https://...m4v`, or `https://...mov`.
+For iPhone, use Stremio addons that return direct playable URLs. HLS/MP4/M4V/MOV links are ideal, but HTTPS stream URLs without a visible file extension are also accepted when the addon marks them as web-ready.
+
+If Mangayomi says `video list is empty`, it means one of these is happening:
+
+- `Stream manifest URLs` is empty.
+- The Stremio addon only returns torrents, magnets, or `infoHash` streams.
+- The addon has no stream for that movie/episode ID.
+- The configured stream addon needs an account/API token and the pasted manifest URL is incomplete.
 
 ## How It Works
 
