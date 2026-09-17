@@ -1,7 +1,7 @@
 const mangayomiSources = [
     {
-        "name": "Stremio Bridge Direct",
-        "id": 928410663,
+        "name": "AIOStreams Bridge harb00",
+        "id": 928410664,
         "baseUrl": "https://v3-cinemeta.strem.io",
         "apiUrl": "",
         "lang": "all",
@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.1.1",
+        "version": "0.1.2",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -190,6 +190,7 @@ class DefaultExtension extends MProvider {
                 name: "Type",
                 state: 0,
                 values: [
+                    { type_name: "SelectOption", name: "Use source setting", value: "" },
                     {
                         type_name: "SelectOption",
                         name: "Movie",
@@ -266,7 +267,7 @@ class DefaultExtension extends MProvider {
                 "listPreference": {
                     "title": "Default content type",
                     "summary": "",
-                    "valueIndex": 0,
+                    "valueIndex": 1,
                     "entries": [
                         "Movies",
                         "Series"
@@ -399,7 +400,7 @@ class DefaultExtension extends MProvider {
 
         return [
             {
-                name: meta.runtime ? `Movie - ${meta.runtime}` : "Movie",
+                name: "Movie",
                 url: this.packRef({
                     kind: "stream",
                     metaBase: baseUrl,
@@ -793,7 +794,7 @@ class DefaultExtension extends MProvider {
         const preferences = new SharedPreferences();
         const catalogManifestUrl = this.preference(preferences, "stremio_catalog_manifest_url", "https://v3-cinemeta.strem.io/manifest.json");
         const streamManifestUrls = this.preference(preferences, "stremio_stream_manifest_urls", "");
-        const mediaType = this.preference(preferences, "stremio_catalog_type", "movie");
+        const mediaType = this.preference(preferences, "stremio_catalog_type", "series");
         const popularCatalogId = this.preference(preferences, "stremio_popular_catalog_id", "top");
         const catalogGenre = this.preference(preferences, "stremio_catalog_genre", "");
         const maxStreams = this.preference(preferences, "stremio_max_streams", "20");

@@ -1,7 +1,7 @@
 [
   {
-    "name": "Stremio Bridge Direct",
-    "id": 928410663,
+    "name": "AIOStreams Bridge harb00",
+    "id": 928410664,
     "baseUrl": "https://v3-cinemeta.strem.io",
     "lang": "all",
     "typeSource": "single",
@@ -10,9 +10,9 @@
     "dateFormatLocale": "",
     "isNsfw": false,
     "hasCloudflare": false,
-    "sourceCodeUrl": "https://raw.githubusercontent.com/scanplayext/stremio-mangayomi/main/anime/src/all/stremiobridge.js",
+    "sourceCodeUrl": "https://raw.githubusercontent.com/harb00/aiostreams-anymex/main/anime/src/all/stremiobridge.js",
     "apiUrl": "",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "isManga": false,
     "itemType": 1,
     "isFullData": false,
