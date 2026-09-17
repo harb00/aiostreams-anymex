@@ -49,3 +49,15 @@ if(process.argv.includes('--live')) {
 assert.equal(p.streamQuality({name:"AIO 1080p",description:"Release title"},"AIOStreams","https://example.com/2160p.mp4"),"AIO 1080p - Release title - [AIOStreams]");
 assert.equal(p.streamQuality({name:"Original name"},"","https://example.com/1080p.mp4"),"Original name");
 console.log("PASS: source names preserve AIOStreams resolution without adding a prefix.");
+const savedJson=p.requestJson.bind(p);
+const subtitleManifest={resources:[{name:'subtitles',types:['series'],idPrefixes:['tt']}]};
+const calls=[];
+p.requestJson=async url=>{calls.push(url);return url.includes('/api/v1/anime')?{data:{mappings:{imdbId:'tt5626028'},imdb:{seasonNumber:4,fromEpisode:1}}}:{subtitles:[{url:'https://example.com/sub.vtt',lang:'en'}]};};
+const external=await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'});
+assert.equal(external.length,1);assert.equal(calls[1],'https://example.com/config/subtitles/series/tt5626028:4:7.json');
+p.requestJson=async()=>({data:{mappings:{imdbId:'tt5626028'},tvdb:{seasonNumber:4},imdb:{}}});
+assert.equal((await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'})).length,0);
+p.requestJson=async()=>{throw Error('subtitle provider unavailable');};
+assert.equal((await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'})).length,0);
+p.requestJson=savedJson;
+console.log('PASS: separate subtitles resource, IMDb season/episode mapping, no TVDB guessing, optional-provider failure.');
