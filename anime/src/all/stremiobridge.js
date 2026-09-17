@@ -2,7 +2,7 @@ const mangayomiSources = [
     {
         "name": "AIOStreams Bridge harb00",
         "id": 928410664,
-        "baseUrl": "https://v3-cinemeta.strem.io",
+        "baseUrl": "https://anilist.co",
         "apiUrl": "",
         "lang": "all",
         "typeSource": "single",
@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.1.2",
+        "version": "0.2.0",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -40,92 +40,21 @@ class DefaultExtension extends MProvider {
         };
     }
 
-    async getPopular(page) {
-        try {
-            const settings = this.readSettings();
-            const manifest = await this.getManifest(settings.catalogManifestUrl);
-            const catalog = this.chooseCatalog(manifest, settings.mediaType, settings.popularCatalogId, false, false);
-            if (!catalog) {
-                return this.emptyPage();
-            }
+    async getPopular(page) { return this.anilistCatalog("", page, "POPULARITY_DESC"); }
 
-            const extra = this.catalogExtra(catalog, page, settings.catalogGenre, false);
-            const url = this.resourceUrl(settings.catalogBaseUrl, "catalog", catalog.type, catalog.id, extra);
-            return this.parseCatalogResponse(await this.requestJson(url), settings.catalogBaseUrl, catalog.type);
-        } catch (error) {
-            return this.emptyPage();
-        }
-    }
+    async getLatestUpdates(page) { return this.anilistCatalog("", page, "START_DATE_DESC"); }
 
-    async getLatestUpdates(page) {
-        try {
-            const settings = this.readSettings();
-            const manifest = await this.getManifest(settings.catalogManifestUrl);
-            const catalog = this.chooseCatalog(manifest, settings.mediaType, "year", false, true) ||
-                this.chooseCatalog(manifest, settings.mediaType, settings.popularCatalogId, false, false);
-            if (!catalog) {
-                return this.emptyPage();
-            }
-
-            const extra = this.catalogExtra(catalog, page, settings.catalogGenre || String(new Date().getFullYear()), false);
-            const url = this.resourceUrl(settings.catalogBaseUrl, "catalog", catalog.type, catalog.id, extra);
-            return this.parseCatalogResponse(await this.requestJson(url), settings.catalogBaseUrl, catalog.type);
-        } catch (error) {
-            return this.emptyPage();
-        }
-    }
-
-    async search(query, page, filters) {
-        try {
-            const settings = this.readSettings();
-            const selected = this.readFilters(filters, settings);
-            const manifest = await this.getManifest(settings.catalogManifestUrl);
-            const needsSearch = this.cleanText(query).length > 0;
-            const catalog = this.chooseCatalog(manifest, selected.mediaType, selected.catalogId, needsSearch, selected.catalogId === "year") ||
-                this.chooseCatalog(manifest, selected.mediaType, "top", needsSearch, false);
-            if (!catalog) {
-                return this.emptyPage();
-            }
-
-            const extra = this.catalogExtra(catalog, page, selected.genre, needsSearch ? query : "");
-            const url = this.resourceUrl(settings.catalogBaseUrl, "catalog", catalog.type, catalog.id, extra);
-            return this.parseCatalogResponse(await this.requestJson(url), settings.catalogBaseUrl, catalog.type);
-        } catch (error) {
-            return this.emptyPage();
-        }
-    }
+    async search(query, page, filters) { return this.anilistCatalog(query, page, "SEARCH_MATCH"); }
 
     async getDetail(url) {
         const ref = this.unpackRef(url);
-        const baseUrl = ref.metaBase || this.readSettings().catalogBaseUrl;
-        const type = ref.type || "movie";
-        const id = ref.id || "";
-        if (!id) {
-            return {};
-        }
-
-        const meta = await this.loadMeta(baseUrl, type, id);
-        if (!meta) {
-            return {};
-        }
-
-        const episodes = this.episodesFromMeta(meta, baseUrl);
-        return {
-            name: this.cleanText(meta.name),
-            link: url,
-            imageUrl: this.bestPoster(meta, "large"),
-            author: this.joinNames(meta.director),
-            artist: this.joinNames(meta.cast),
-            description: this.detailDescription(meta),
-            genre: meta.genres || meta.genre || [],
-            genres: meta.genres || meta.genre || [],
-            status: this.statusFromMeta(meta),
-            episodes
-        };
+        if (ref.kind !== "anilist") throw new Error("Open this anime from the AniList catalog and bind its tracker in AnymeX.");
+        return this.anilistDetail(ref, url);
     }
 
     async getVideoList(url) {
         const ref = this.unpackRef(url);
+        if (!ref.anilistId || ref.kind !== "stream") throw new Error("Select an episode from the AniList catalog.");
         const settings = this.readSettings();
         const type = ref.type || "movie";
         const id = ref.id || ref.parentId || "";
@@ -178,80 +107,10 @@ class DefaultExtension extends MProvider {
         return this.sortVideos(videos);
     }
 
-    getFilterList() {
-        return [
-            {
-                type_name: "HeaderFilter",
-                name: "Stremio Bridge: filters apply to search."
-            },
-            {
-                type_name: "SelectFilter",
-                type: "MediaTypeFilter",
-                name: "Type",
-                state: 0,
-                values: [
-                    { type_name: "SelectOption", name: "Use source setting", value: "" },
-                    {
-                        type_name: "SelectOption",
-                        name: "Movie",
-                        value: "movie"
-                    },
-                    {
-                        type_name: "SelectOption",
-                        name: "Series",
-                        value: "series"
-                    }
-                ]
-            },
-            {
-                type_name: "SelectFilter",
-                type: "CatalogFilter",
-                name: "Catalog",
-                state: 0,
-                values: [
-                    {
-                        type_name: "SelectOption",
-                        name: "Popular",
-                        value: "top"
-                    },
-                    {
-                        type_name: "SelectOption",
-                        name: "Featured",
-                        value: "imdbRating"
-                    },
-                    {
-                        type_name: "SelectOption",
-                        name: "Year / New",
-                        value: "year"
-                    }
-                ]
-            },
-            {
-                type_name: "SelectFilter",
-                type: "GenreFilter",
-                name: "Genre",
-                state: 0,
-                values: this.genreOptions().map(item => ({
-                    type_name: "SelectOption",
-                    name: item[0],
-                    value: item[1]
-                }))
-            }
-        ];
-    }
+    getFilterList() { return []; }
 
     getSourcePreferences() {
         return [
-            {
-                "key": "stremio_catalog_manifest_url",
-                "editTextPreference": {
-                    "title": "Catalog manifest URL",
-                    "summary": "Default uses official Cinemeta metadata/catalogs.",
-                    "value": "https://v3-cinemeta.strem.io/manifest.json",
-                    "dialogTitle": "Catalog manifest URL",
-                    "dialogMessage": "Paste a public Stremio manifest URL that provides catalog/meta resources."
-                }
-            },
             {
                 "key": "stremio_stream_manifest_urls",
                 "editTextPreference": {
@@ -260,50 +119,6 @@ class DefaultExtension extends MProvider {
                     "value": "",
                     "dialogTitle": "Stream manifest URLs",
                     "dialogMessage": "Paste configured Stremio addon manifest URLs. Torrent/magnet/infoHash/local streams are always ignored."
-                }
-            },
-            {
-                "key": "stremio_catalog_type",
-                "listPreference": {
-                    "title": "Default content type",
-                    "summary": "",
-                    "valueIndex": 1,
-                    "entries": [
-                        "Movies",
-                        "Series"
-                    ],
-                    "entryValues": [
-                        "movie",
-                        "series"
-                    ]
-                }
-            },
-            {
-                "key": "stremio_popular_catalog_id",
-                "listPreference": {
-                    "title": "Popular catalog",
-                    "summary": "",
-                    "valueIndex": 0,
-                    "entries": [
-                        "Popular",
-                        "Featured",
-                        "Year / New"
-                    ],
-                    "entryValues": [
-                        "top",
-                        "imdbRating",
-                        "year"
-                    ]
-                }
-            },
-            {
-                "key": "stremio_catalog_genre",
-                "listPreference": {
-                    "title": "Default genre/category",
-                    "summary": "Used by catalog pages when the selected catalog supports genres.",
-                    "valueIndex": 0,
-                    "entries": this.genreOptions().map(item => item[0]),
-                    "entryValues": this.genreOptions().map(item => item[1])
                 }
             },
             {
@@ -345,79 +160,86 @@ class DefaultExtension extends MProvider {
         ];
     }
 
-    async loadMeta(baseUrl, type, id) {
-        const metaUrl = this.resourceUrl(baseUrl, "meta", type, id, null);
-        try {
-            const json = await this.requestJson(metaUrl);
-            return json && json.meta ? json.meta : null;
-        } catch (error) {
-            if (baseUrl !== this.source.baseUrl) {
-                try {
-                    const fallback = await this.requestJson(this.resourceUrl(this.source.baseUrl, "meta", type, id, null));
-                    return fallback && fallback.meta ? fallback.meta : null;
-                } catch (fallbackError) {
-                    return null;
-                }
-            }
-            return null;
-        }
+    anilistFields() {
+        return "id idMal format episodes status isAdult title{romaji english native} coverImage{large extraLarge} description genres nextAiringEpisode{episode} startDate{year month day}";
     }
 
-    episodesFromMeta(meta, baseUrl) {
-        const type = meta.type === "show" ? "series" : (meta.type || "movie");
-        const videos = Array.isArray(meta.videos) ? meta.videos : [];
-        if (type === "series" || videos.length > 0) {
-            const now = Date.now();
-            return videos
-                .filter(video => {
-                    const date = video.firstAired || video.released;
-                    if (!date) {
-                        return true;
-                    }
-                    const millis = new Date(date).valueOf();
-                    return Number.isNaN(millis) || millis <= now;
-                })
-                .map(video => {
-                    const season = video.season || "";
-                    const episode = video.number || video.episode || "";
-                    const title = this.cleanText(video.name || video.title || `Episode ${episode}`);
-                    return {
-                        name: `S${season}:E${episode} - ${title}`,
-                        url: this.packRef({
-                            kind: "stream",
-                            metaBase: baseUrl,
-                            type: "series",
-                            id: video.id || meta.id,
-                            parentId: meta.id
-                        }),
-                        dateUpload: this.toDateUpload(video.firstAired || video.released),
-                        thumbnailUrl: this.normalizeImageUrl(video.thumbnail || meta.poster || ""),
-                        description: this.cleanText(video.description || video.overview || "")
-                    };
-                })
-                .sort((a, b) => this.episodeSortValue(b.name) - this.episodeSortValue(a.name));
+    async anilistQuery(query, variables) {
+        const response = await this.client.post("https://graphql.anilist.co",
+            Object.assign({}, this.getHeaders(), { "Content-Type": "application/json" }),
+            JSON.stringify({ query, variables }));
+        const json = response && response.body ? JSON.parse(response.body) : null;
+        if (!json || json.errors || !json.data) {
+            throw new Error("AniList lookup failed. Try again later.");
         }
+        return json.data;
+    }
 
-        return [
-            {
-                name: "Movie",
+    async anilistCatalog(query, page, sort) {
+        const search = this.cleanText(query);
+        const data = await this.anilistQuery(
+            "query($page:Int,$search:String,$sort:[MediaSort]){Page(page:$page,perPage:30){pageInfo{hasNextPage}media(type:ANIME,isAdult:false,search:$search,sort:$sort){" + this.anilistFields() + "}}}",
+            { page: this.safePage(page), search: search || null, sort: [search ? "SEARCH_MATCH" : (sort === "SEARCH_MATCH" ? "POPULARITY_DESC" : sort)] }
+        );
+        return {
+            list: data.Page.media.map(media => this.anilistItem(media)),
+            hasNextPage: Boolean(data.Page.pageInfo.hasNextPage)
+        };
+    }
+
+    anilistItem(media) {
+        return {
+            name: media.title.romaji || media.title.english || media.title.native,
+            imageUrl: media.coverImage.extraLarge || media.coverImage.large,
+            // Only the AniList ID defines identity. Titles, MAL mappings and settings can change.
+            link: this.packRef({ kind: "anilist", id: media.id }),
+            description: this.cleanText(media.description),
+            genre: media.genres || []
+        };
+    }
+
+    async anilistDetail(ref, url) {
+        const data = await this.anilistQuery(
+            "query($id:Int!){Media(id:$id,type:ANIME){" + this.anilistFields() + "}}",
+            { id: Number(ref.id) }
+        );
+        const media = data.Media;
+        if (!media) throw new Error("AniList could not resolve this anime.");
+        const item = this.anilistItem(media);
+        const ids = "AniList: https://anilist.co/anime/" + media.id +
+            (media.idMal ? "\nMyAnimeList: https://myanimelist.net/anime/" + media.idMal : "");
+        return Object.assign({}, item, {
+            link: url,
+            description: item.description + "\n\n" + ids +
+                "\nTracking: bind this exact anime entry in AnymeX. Episode numbers are local to this entry.",
+            status: media.status === "FINISHED" ? 1 : (media.status === "RELEASING" ? 0 : 5),
+            episodes: this.anilistEpisodes(media)
+        });
+    }
+
+    anilistEpisodes(media) {
+        if (media.status === "NOT_YET_RELEASED" || media.status === "CANCELLED") return [];
+        if (!media.idMal) throw new Error("This anime has no MAL mapping for AIOStreams yet.");
+        let count = media.episodes || 0;
+        if (media.nextAiringEpisode && media.nextAiringEpisode.episode > 0) {
+            const aired = media.nextAiringEpisode.episode - 1;
+            count = count ? Math.min(count, aired) : aired;
+        }
+        if (!count && media.format === "MOVIE" && media.status === "FINISHED") count = 1;
+        const type = media.format === "MOVIE" ? "movie" : "series";
+        const episodes = [];
+        for (let number = count; number >= 1; number--) {
+            episodes.push({
+                // AnymeX's Mangayomi bridge parses the number from this name.
+                // No season/title numbers precede it, including for movies.
+                name: "Episode " + number,
                 url: this.packRef({
-                    kind: "stream",
-                    metaBase: baseUrl,
-                    type: "movie",
-                    id: meta.id || meta.imdb_id
-                }),
-                dateUpload: this.toDateUpload(meta.released)
-            }
-        ];
-    }
-
-    episodeSortValue(name) {
-        const match = String(name || "").match(/S(\d+):E(\d+)/);
-        if (!match) {
-            return 0;
+                    kind: "stream", anilistId: media.id, type,
+                    id: "mal:" + media.idMal + (type === "movie" ? "" : ":" + number)
+                })
+            });
         }
-        return Number(match[1]) * 10000 + Number(match[2]);
+        return episodes;
     }
 
     async getManifest(manifestUrl) {
@@ -442,106 +264,6 @@ class DefaultExtension extends MProvider {
             throw new Error(`Empty Stremio response: ${url}`);
         }
         return JSON.parse(response.body);
-    }
-
-    parseCatalogResponse(json, baseUrl, fallbackType) {
-        const metas = json && Array.isArray(json.metas) ? json.metas : [];
-        return {
-            list: metas.map(meta => this.itemFromMeta(meta, baseUrl, fallbackType)).filter(Boolean),
-            hasNextPage: Boolean(json && (json.hasMore || json.hasNextPage))
-        };
-    }
-
-    itemFromMeta(meta, baseUrl, fallbackType) {
-        const id = meta && (meta.id || meta.imdb_id);
-        if (!meta || !id || !meta.name) {
-            return null;
-        }
-        const type = meta.type === "show" ? "series" : (meta.type || fallbackType || "movie");
-        return {
-            name: this.cleanText(meta.name),
-            imageUrl: this.bestPoster(meta, "medium"),
-            link: this.packRef({
-                kind: "meta",
-                metaBase: baseUrl,
-                type,
-                id
-            }),
-            description: this.cleanText(meta.description || meta.releaseInfo || meta.year || ""),
-            genre: meta.genres || meta.genre || []
-        };
-    }
-
-    chooseCatalog(manifest, mediaType, preferredId, needsSearch, preferGenreRequired) {
-        const catalogs = manifest && Array.isArray(manifest.catalogs) ? manifest.catalogs : [];
-        const candidates = catalogs.filter(catalog => {
-            if (!catalog || catalog.type !== mediaType) {
-                return false;
-            }
-            if (needsSearch && !this.catalogSupports(catalog, "search")) {
-                return false;
-            }
-            if (preferGenreRequired && !this.catalogSupports(catalog, "genre")) {
-                return false;
-            }
-            return this.hasOnlySupportedRequirements(catalog);
-        });
-
-        return candidates.find(catalog => catalog.id === preferredId) ||
-            candidates.find(catalog => catalog.id === "top") ||
-            candidates[0] ||
-            null;
-    }
-
-    hasOnlySupportedRequirements(catalog) {
-        const required = catalog.extraRequired || [];
-        for (const item of required) {
-            if (item !== "genre" && item !== "search" && item !== "skip") {
-                return false;
-            }
-        }
-        const extra = catalog.extra || [];
-        for (const item of extra) {
-            if (item && item.isRequired && item.name !== "genre" && item.name !== "search" && item.name !== "skip") {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    catalogSupports(catalog, name) {
-        const supported = catalog.extraSupported || [];
-        if (supported.indexOf(name) !== -1) {
-            return true;
-        }
-        const extra = catalog.extra || [];
-        return extra.some(item => item && item.name === name);
-    }
-
-    catalogExtra(catalog, page, genre, search) {
-        const extra = {};
-        if (this.catalogSupports(catalog, "skip")) {
-            extra.skip = String((this.safePage(page) - 1) * 100);
-        }
-        if (search && this.catalogSupports(catalog, "search")) {
-            extra.search = this.cleanText(search);
-        }
-        if (this.catalogSupports(catalog, "genre")) {
-            const selectedGenre = genre || this.requiredGenreFallback(catalog);
-            if (selectedGenre) {
-                extra.genre = selectedGenre;
-            }
-        }
-        return extra;
-    }
-
-    requiredGenreFallback(catalog) {
-        const years = catalog.genres || [];
-        const currentYear = String(new Date().getFullYear());
-        if (years.indexOf(currentYear) !== -1) {
-            return currentYear;
-        }
-        return years.length > 0 && /^\d{4}$/.test(String(years[0])) ? String(years[0]) : "";
     }
 
     videoFromStream(stream, addonName, settings) {
@@ -681,15 +403,7 @@ class DefaultExtension extends MProvider {
         return this.unique(urls);
     }
 
-    videoProviderUrls(ref, settings) {
-        const urls = [];
-        const catalogManifest = this.manifestUrl(ref.metaBase || settings.catalogBaseUrl);
-        if (catalogManifest) {
-            urls.push(catalogManifest);
-        }
-        this.streamManifestUrls(settings).forEach(url => urls.push(url));
-        return this.unique(urls);
-    }
+    videoProviderUrls(ref, settings) { return this.streamManifestUrls(settings); }
 
     splitUrls(value) {
         return String(value || "")
@@ -792,21 +506,9 @@ class DefaultExtension extends MProvider {
 
     readSettings() {
         const preferences = new SharedPreferences();
-        const catalogManifestUrl = this.preference(preferences, "stremio_catalog_manifest_url", "https://v3-cinemeta.strem.io/manifest.json");
-        const streamManifestUrls = this.preference(preferences, "stremio_stream_manifest_urls", "");
-        const mediaType = this.preference(preferences, "stremio_catalog_type", "series");
-        const popularCatalogId = this.preference(preferences, "stremio_popular_catalog_id", "top");
-        const catalogGenre = this.preference(preferences, "stremio_catalog_genre", "");
-        const maxStreams = this.preference(preferences, "stremio_max_streams", "20");
-
         return {
-            catalogManifestUrl: this.manifestUrl(catalogManifestUrl),
-            catalogBaseUrl: this.manifestBaseUrl(catalogManifestUrl),
-            streamManifestUrls,
-            mediaType: mediaType === "series" ? "series" : "movie",
-            popularCatalogId: popularCatalogId || "top",
-            catalogGenre,
-            maxStreams,
+            streamManifestUrls: this.preference(preferences, "stremio_stream_manifest_urls", ""),
+            maxStreams: this.preference(preferences, "stremio_max_streams", "20"),
             strictIosStreams: this.boolPreference(preferences, "stremio_strict_ios_streams", true),
             allowHttpStreams: this.boolPreference(preferences, "stremio_allow_http_streams", false)
         };
@@ -828,55 +530,6 @@ class DefaultExtension extends MProvider {
         return value === true || value === "true";
     }
 
-    readFilters(filters, settings) {
-        const selected = {
-            mediaType: settings.mediaType,
-            catalogId: settings.popularCatalogId,
-            genre: settings.catalogGenre
-        };
-
-        if (!filters || !Array.isArray(filters)) {
-            return selected;
-        }
-
-        filters.forEach(filter => {
-            if (filter.type === "MediaTypeFilter") {
-                selected.mediaType = this.selectFilterValue(filter) || selected.mediaType;
-            } else if (filter.type === "CatalogFilter") {
-                selected.catalogId = this.selectFilterValue(filter) || selected.catalogId;
-            } else if (filter.type === "GenreFilter") {
-                selected.genre = this.selectFilterValue(filter);
-            }
-        });
-
-        return selected;
-    }
-
-    selectFilterValue(filter) {
-        if (!filter.values || filter.state === undefined || filter.state === null) {
-            return "";
-        }
-        const option = filter.values[Number(filter.state)];
-        return option && option.value ? String(option.value) : "";
-    }
-
-    bestPoster(meta, size) {
-        const poster = meta.poster || meta.image || meta.background || meta.logo || "";
-        return this.upgradeMetaHubImage(this.normalizeImageUrl(poster), size);
-    }
-
-    upgradeMetaHubImage(url, size) {
-        if (!url) {
-            return "";
-        }
-        const target = size === "large" ? "large" : "medium";
-        return url
-            .replace(/\/poster\/small\//i, `/poster/${target}/`)
-            .replace(/\/poster\/medium\//i, `/poster/${target}/`)
-            .replace(/\/background\/small\//i, `/background/${target}/`)
-            .replace(/\/background\/medium\//i, `/background/${target}/`);
-    }
-
     normalizeImageUrl(url) {
         if (!url || typeof url !== "string") {
             return "";
@@ -889,52 +542,6 @@ class DefaultExtension extends MProvider {
         } catch (error) {
             return url;
         }
-    }
-
-    detailDescription(meta) {
-        const parts = [];
-        if (meta.description) {
-            parts.push(this.cleanText(meta.description));
-        }
-        if (meta.releaseInfo || meta.year) {
-            parts.push(`Release: ${this.cleanText(meta.releaseInfo || meta.year)}`);
-        }
-        if (meta.runtime) {
-            parts.push(`Runtime: ${this.cleanText(meta.runtime)}`);
-        }
-        if (meta.imdbRating) {
-            parts.push(`IMDb: ${this.cleanText(meta.imdbRating)}`);
-        }
-        return parts.join("\n\n");
-    }
-
-    statusFromMeta(meta) {
-        const status = this.cleanText(meta.status).toLowerCase();
-        if (meta.type === "movie") {
-            return 1;
-        }
-        if (status.indexOf("ended") !== -1 || status.indexOf("completed") !== -1) {
-            return 1;
-        }
-        if (status.indexOf("continuing") !== -1 || status.indexOf("returning") !== -1) {
-            return 0;
-        }
-        return 5;
-    }
-
-    toDateUpload(value) {
-        if (!value) {
-            return null;
-        }
-        const millis = new Date(value).valueOf();
-        return Number.isNaN(millis) ? null : millis.toString();
-    }
-
-    joinNames(value) {
-        if (Array.isArray(value)) {
-            return value.map(item => this.cleanText(item)).filter(Boolean).join(", ");
-        }
-        return this.cleanText(value);
     }
 
     safePage(page) {
@@ -973,35 +580,5 @@ class DefaultExtension extends MProvider {
             .trim();
     }
 
-    genreOptions() {
-        const currentYear = String(new Date().getFullYear());
-        return [
-            ["All", ""],
-            ["Action", "Action"],
-            ["Adventure", "Adventure"],
-            ["Animation", "Animation"],
-            ["Biography", "Biography"],
-            ["Comedy", "Comedy"],
-            ["Crime", "Crime"],
-            ["Documentary", "Documentary"],
-            ["Drama", "Drama"],
-            ["Family", "Family"],
-            ["Fantasy", "Fantasy"],
-            ["History", "History"],
-            ["Horror", "Horror"],
-            ["Mystery", "Mystery"],
-            ["Romance", "Romance"],
-            ["Sci-Fi", "Sci-Fi"],
-            ["Sport", "Sport"],
-            ["Thriller", "Thriller"],
-            ["War", "War"],
-            ["Western", "Western"],
-            ["Reality-TV", "Reality-TV"],
-            ["Talk-Show", "Talk-Show"],
-            ["Game-Show", "Game-Show"],
-            [currentYear, currentYear],
-            [String(Number(currentYear) - 1), String(Number(currentYear) - 1)],
-            [String(Number(currentYear) - 2), String(Number(currentYear) - 2)]
-        ];
-    }
+
 }

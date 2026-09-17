@@ -2,7 +2,7 @@
   {
     "name": "AIOStreams Bridge harb00",
     "id": 928410664,
-    "baseUrl": "https://v3-cinemeta.strem.io",
+    "baseUrl": "https://anilist.co",
     "lang": "all",
     "typeSource": "single",
     "iconUrl": "https://www.stremio.com/website/stremio-logo-small.png",
@@ -12,13 +12,13 @@
     "hasCloudflare": false,
     "sourceCodeUrl": "https://raw.githubusercontent.com/harb00/aiostreams-anymex/main/anime/src/all/stremiobridge.js",
     "apiUrl": "",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "isManga": false,
     "itemType": 1,
     "isFullData": false,
     "appMinVerReq": "0.5.0",
     "additionalParams": "",
     "sourceCodeLanguage": 1,
-    "notes": "Pure JavaScript iOS-compatible Stremio addon adapter. Direct HTTP(S) streams only; no torrent, no magnet, no infoHash, no localhost, no Android proxy."
+    "notes": "AniList anime titles with season-local episodes and AIOStreams playback. Bind each title to its exact AniList/MAL tracker in AnymeX. Re-add old Cinemeta titles."
   }
 ]

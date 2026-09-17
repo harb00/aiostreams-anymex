@@ -1,0 +1,38 @@
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const prefs = {};
+const context = vm.createContext({MProvider: class {}, Client: class {async post(url,headers,body) {const r=await fetch(url,{method:"POST",headers,body});if(!r.ok) throw Error("HTTP "+r.status);return {body:await r.text()};} async get(url) {const r=await fetch(url); if(!r.ok) throw Error('HTTP '+r.status);return {body:await r.text()};}}, SharedPreferences:class {get(k){return prefs[k];}},console});
+vm.runInContext(readFileSync(new URL('../anime/src/all/stremiobridge.js',import.meta.url),'utf8')+'\nglobalThis.provider=new DefaultExtension();',context);
+const p=context.provider;
+const m={id:16498,idMal:16498,title:{romaji:'Season 2'},coverImage:{large:'poster'},status:'FINISHED',format:'TV',episodes:12};
+const eps=p.anilistEpisodes(m);
+assert.equal(eps.length,12);assert.equal(eps[0].name,'Episode 12');assert.equal(eps[11].name,'Episode 1');
+assert.equal(p.unpackRef(eps[11].url).id,'mal:16498:1');
+assert.equal(p.anilistItem(m).link,p.anilistItem({...m,idMal:99,title:{romaji:'Changed'}}).link);
+assert.notEqual(p.anilistItem(m).link,p.anilistItem({...m,id:99}).link);
+assert.equal(p.anilistEpisodes({...m,status:'RELEASING',nextAiringEpisode:{episode:4}}).length,3);
+assert.equal(p.anilistEpisodes({...m,status:'NOT_YET_RELEASED'}).length,0);
+assert.equal(p.anilistEpisodes({...m,episodes:null}).length,0);
+assert.equal(p.anilistEpisodes({...m,nextAiringEpisode:{episode:1}}).length,0);
+assert.equal(p.anilistEpisodes({...m,format:'MOVIE',episodes:1})[0].name,'Episode 1');
+assert.equal(p.unpackRef(p.anilistEpisodes({...m,format:'MOVIE',episodes:1})[0].url).id,'mal:16498');
+assert.throws(()=>p.anilistEpisodes({...m,idMal:null}),/MAL/);
+await assert.rejects(()=>p.getDetail(p.packRef({kind:'meta',id:'tt123'})),/AniList/);
+await assert.rejects(()=>p.getVideoList(p.packRef({kind:'stream',id:'tt123:2:1'})),/AniList/);
+assert(!p.getSourcePreferences().some(x=>/catalog/.test(x.key)));
+const original=p.requestJson.bind(p);const requested=[];
+prefs.stremio_stream_manifest_urls='https://example.com/config/manifest.json';
+p.requestJson=async url=>{requested.push(url);return url.endsWith('manifest.json')?{resources:['stream']}:{streams:[{url:'https://example.com/video.mp4'}]};};
+assert.equal((await p.getVideoList(eps[11].url)).length,1);
+assert(requested.includes('https://example.com/config/stream/series/mal:16498:1.json'));
+p.requestJson=original;
+console.log('PASS: separate stable titles, local numbering, aired episodes, movies, missing mappings, legacy rejection, MAL stream routing.');
+if(process.argv.includes('--live')) {
+ const result=await p.search((await p.getDetail(p.packRef({kind:'anilist',id:20958}))).name,1,[]);
+ assert(result.list.length>1);
+ const season=result.list.find(x=>p.unpackRef(x.link).id===20958);assert(season);
+ const detail=await p.getDetail(season.link);assert.equal(detail.episodes.length,12);
+ const first=detail.episodes.at(-1);assert.equal(first.name,'Episode 1');assert.equal(p.unpackRef(first.url).id,'mal:25777:1');
+ console.log('PASS live: AniList search -> mapped anime entry -> 12 episodes -> mal:25777:1');
+}
