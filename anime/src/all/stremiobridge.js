@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.2.2",
+        "version": "0.2.3",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -345,10 +345,6 @@ class DefaultExtension extends MProvider {
 
     streamQuality(stream, addonName, url) {
         const parts = [];
-        const inferred = this.inferQuality(`${stream.name || ""} ${stream.title || ""} ${stream.description || ""} ${url}`);
-        if (inferred) {
-            parts.push(inferred);
-        }
         if (stream.name) {
             parts.push(this.cleanText(stream.name));
         }
@@ -359,32 +355,6 @@ class DefaultExtension extends MProvider {
             parts.push(`[${this.cleanText(addonName)}]`);
         }
         return parts.join(" - ").replace(/\s+/g, " ").trim() || "Direct stream";
-    }
-
-    inferQuality(value) {
-        const text = String(value || "").toLowerCase();
-        if (text.indexOf("2160") !== -1 || text.indexOf("4k") !== -1 || text.indexOf("uhd") !== -1) {
-            return "4K";
-        }
-        if (text.indexOf("1080") !== -1) {
-            return "1080p";
-        }
-        if (text.indexOf("720") !== -1) {
-            return "720p";
-        }
-        if (text.indexOf("480") !== -1) {
-            return "480p";
-        }
-        if (text.indexOf("360") !== -1) {
-            return "360p";
-        }
-        if (text.indexOf(".m3u8") !== -1 || text.indexOf("/hls") !== -1) {
-            return "HLS";
-        }
-        if (text.indexOf(".mp4") !== -1) {
-            return "MP4";
-        }
-        return "";
     }
 
     sortVideos(videos) {

@@ -45,3 +45,7 @@ if(process.argv.includes('--live')) {
  console.log('PASS live: mapped anime entry -> 25 episodes -> mal:38408:1');
  console.log('PASS live: AniList search -> mapped anime entry -> 12 episodes -> mal:25777:1');
 }
+
+assert.equal(p.streamQuality({name:"AIO 1080p",description:"Release title"},"AIOStreams","https://example.com/2160p.mp4"),"AIO 1080p - Release title - [AIOStreams]");
+assert.equal(p.streamQuality({name:"Original name"},"","https://example.com/1080p.mp4"),"Original name");
+console.log("PASS: source names preserve AIOStreams resolution without adding a prefix.");
