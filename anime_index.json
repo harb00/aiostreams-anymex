@@ -12,7 +12,7 @@
     "hasCloudflare": false,
     "sourceCodeUrl": "https://raw.githubusercontent.com/harb00/aiostreams-anymex/main/anime/src/all/stremiobridge.js",
     "apiUrl": "",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "isManga": false,
     "itemType": 1,
     "isFullData": false,

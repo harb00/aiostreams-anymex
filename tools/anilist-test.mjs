@@ -2,7 +2,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const prefs = {};
-const context = vm.createContext({MProvider: class {}, Client: class {async post(url,headers,body) {const r=await fetch(url,{method:"POST",headers,body});if(!r.ok) throw Error("HTTP "+r.status);return {body:await r.text()};} async get(url) {const r=await fetch(url); if(!r.ok) throw Error('HTTP '+r.status);return {body:await r.text()};}}, SharedPreferences:class {get(k){return prefs[k];}},console});
+const context = vm.createContext({MProvider: class {}, Client: class {async post(url,headers,body) {assert.equal(typeof body,"object","Mangayomi JSON POST requires an object, not an encoded string");const r=await fetch(url,{method:"POST",headers,body:JSON.stringify(body)});if(!r.ok) throw Error("HTTP "+r.status);return {body:await r.text()};} async get(url) {const r=await fetch(url); if(!r.ok) throw Error('HTTP '+r.status);return {body:await r.text()};}}, assert, SharedPreferences:class {get(k){return prefs[k];}},console});
 vm.runInContext(readFileSync(new URL('../anime/src/all/stremiobridge.js',import.meta.url),'utf8')+'\nglobalThis.provider=new DefaultExtension();',context);
 const p=context.provider;
 const m={id:16498,idMal:16498,title:{romaji:'Season 2'},coverImage:{large:'poster'},status:'FINISHED',format:'TV',episodes:12};
@@ -34,5 +34,10 @@ if(process.argv.includes('--live')) {
  const season=result.list.find(x=>p.unpackRef(x.link).id===20958);assert(season);
  const detail=await p.getDetail(season.link);assert.equal(detail.episodes.length,12);
  const first=detail.episodes.at(-1);assert.equal(first.name,'Episode 1');assert.equal(p.unpackRef(first.url).id,'mal:25777:1');
+ const mha=await p.getDetail(p.packRef({kind:'anilist',id:104276}));
+ assert.equal(mha.episodes.length,25);
+ assert.equal(mha.episodes.at(-1).name,'Episode 1');
+ assert.equal(p.unpackRef(mha.episodes.at(-1).url).id,'mal:38408:1');
+ console.log('PASS live: mapped anime entry -> 25 episodes -> mal:38408:1');
  console.log('PASS live: AniList search -> mapped anime entry -> 12 episodes -> mal:25777:1');
 }

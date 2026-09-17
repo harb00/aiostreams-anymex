@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.2.0",
+        "version": "0.2.1",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -165,9 +165,11 @@ class DefaultExtension extends MProvider {
     }
 
     async anilistQuery(query, variables) {
+        // Mangayomi serializes application/json bodies in its Dart HTTP bridge.
+        // Pass an object; a JSON string would be encoded a second time.
         const response = await this.client.post("https://graphql.anilist.co",
             Object.assign({}, this.getHeaders(), { "Content-Type": "application/json" }),
-            JSON.stringify({ query, variables }));
+            { query, variables });
         const json = response && response.body ? JSON.parse(response.body) : null;
         if (!json || json.errors || !json.data) {
             throw new Error("AniList lookup failed. Try again later.");
