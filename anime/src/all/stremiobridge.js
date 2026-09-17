@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.2.1",
+        "version": "0.2.2",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -268,6 +268,17 @@ class DefaultExtension extends MProvider {
         return JSON.parse(response.body);
     }
 
+    subtitlesFromStream(stream) {
+        const seen = {};
+        return (Array.isArray(stream.subtitles) ? stream.subtitles : []).reduce((tracks, sub) => {
+            const file = sub && typeof sub.url === "string" ? this.absoluteUrl(sub.url) : "";
+            if (!/^https?:\/\//i.test(file) || this.isLocalUrl(file) || seen[file]) return tracks;
+            seen[file] = true;
+            tracks.push({ file, label: this.cleanText(sub.lang || sub.label || "Unknown") });
+            return tracks;
+        }, []);
+    }
+
     videoFromStream(stream, addonName, settings) {
         if (!stream || stream.magnet || stream.nzbUrl || stream.rarUrls || stream.zipUrls || stream.externalUrl) {
             return null;
@@ -286,7 +297,8 @@ class DefaultExtension extends MProvider {
         const video = {
             url,
             originalUrl: url,
-            quality
+            quality,
+            subtitles: this.subtitlesFromStream(stream)
         };
         if (headers) {
             video.headers = headers;

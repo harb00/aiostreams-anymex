@@ -25,3 +25,5 @@ Animap aligns AniDB episodes with TVDB seasons using mapping rules. This extensi
 Run `node tools/anilist-test.mjs` for regression tests, or add `--live` for AniList search/detail checks. Tests cover identity, numbering, movies, unaired episodes, legacy rejection and MAL stream routing. AnymeX 3.1.7 tracking and the Mangayomi number parser were inspected; native iOS playback and authenticated tracker writes still require device verification.
 
 Direct HTTP(S) playback only. Never commit personal manifest URLs or API keys.
+
+AnymeX 3.1.7 itself splits 13–50 episodes into groups of 12. Select **All** to show the entire season. Removing those interval buttons requires an app change, not an extension setting.

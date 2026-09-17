@@ -27,6 +27,10 @@ p.requestJson=async url=>{requested.push(url);return url.endsWith('manifest.json
 assert.equal((await p.getVideoList(eps[11].url)).length,1);
 assert(requested.includes('https://example.com/config/stream/series/mal:16498:1.json'));
 p.requestJson=original;
+const video=p.videoFromStream({url:'https://example.com/v.mp4',subtitles:[{url:'https://example.com/en.vtt',lang:'en'},{url:'https://example.com/da.srt',lang:'da'},{url:'https://example.com/en.vtt',lang:'en'},null,{url:'file:///tmp/sub.srt'},{url:'http://127.0.0.1/sub.srt'}]},'Test',p.readSettings());
+assert.equal(video.subtitles.length,2);assert.equal(video.subtitles[0].file,'https://example.com/en.vtt');assert.equal(video.subtitles[1].label,'da');
+assert.equal(p.videoFromStream({url:'https://example.com/v.mp4'},'Test',p.readSettings()).subtitles.length,0);
+console.log('PASS: subtitle forwarding, filtering and deduplication; no invented embedded tracks.');
 console.log('PASS: separate stable titles, local numbering, aired episodes, movies, missing mappings, legacy rejection, MAL stream routing.');
 if(process.argv.includes('--live')) {
  const result=await p.search((await p.getDetail(p.packRef({kind:'anilist',id:20958}))).name,1,[]);
