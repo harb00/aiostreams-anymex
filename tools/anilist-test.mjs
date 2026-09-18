@@ -61,3 +61,19 @@ p.requestJson=async()=>{throw Error('subtitle provider unavailable');};
 assert.equal((await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'})).length,0);
 p.requestJson=savedJson;
 console.log('PASS: separate subtitles resource, IMDb season/episode mapping, no TVDB guessing, optional-provider failure.');
+
+const candidateTracks=[
+ {url:'https://example.com/a.srt',subtitleFileName:'[Group-A] Series.S04E07.1080p.srt'},
+ {url:'https://example.com/b.srt',movieReleaseName:'[Group-B] Series.S04E07.720p'},
+ {url:'https://example.com/c.srt',subtitleFileName:'[Group-A] Series.S04E08.1080p.srt'},
+ {url:'https://example.com/d.srt',lang:'en'},
+ null
+];
+const sourceA={behaviorHints:{filename:'[Group-A] Series.S04E07.1080p.mkv'}};
+const sourceB={behaviorHints:{filename:'[Group-B] Series.S04E07.720p.mkv'}};
+assert.equal(p.matchSubtitles(sourceA,candidateTracks).length,1);
+assert.equal(p.matchSubtitles(sourceA,candidateTracks)[0].url,'https://example.com/a.srt');
+assert.equal(p.matchSubtitles(sourceB,candidateTracks)[0].url,'https://example.com/b.srt');
+assert.equal(p.matchSubtitles({},candidateTracks).length,0);
+assert.equal(p.matchSubtitles({behaviorHints:{filename:'Unknown.mkv'}},candidateTracks).length,0);
+console.log('PASS: release matching keeps sources separate and excludes mismatched episodes, groups and unknown files.');

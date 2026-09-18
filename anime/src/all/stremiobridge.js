@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.2.4",
+        "version": "0.2.5",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -90,7 +90,7 @@ class DefaultExtension extends MProvider {
                 const subtitles = streams.length ? await this.episodeSubtitles(baseUrl, manifest, ref) : [];
 
                 for (const stream of streams) {
-                    const video = this.videoFromStream(Object.assign({}, stream, { subtitles: (stream.subtitles || []).concat(subtitles) }), addonName, settings);
+                    const video = this.videoFromStream(Object.assign({}, stream, { subtitles: (stream.subtitles || []).concat(this.matchSubtitles(stream, subtitles)) }), addonName, settings);
                     if (!video || seen[video.url]) {
                         continue;
                     }
@@ -298,6 +298,22 @@ class DefaultExtension extends MProvider {
             // Optional subtitle providers must not prevent video playback.
             return [];
         }
+    }
+
+    releaseKey(value) {
+        if (typeof value !== "string") return "";
+        // Preserve episode, group, resolution and checksum distinctions.
+        // Only normalize casing, separators and file extensions.
+        return value.trim().split(/[\\/]/).pop()
+            .replace(/\.(mkv|mp4|avi|webm|m4v|srt|ass|ssa|vtt|sub)$/i, "")
+            .toLowerCase().replace(/[ ._]+/g, " ").trim();
+    }
+
+    matchSubtitles(stream, candidates) {
+        const key = this.releaseKey((stream.behaviorHints || {}).filename);
+        if (!key) return [];
+        return candidates.filter(sub => sub &&
+            [sub.subtitleFileName, sub.movieReleaseName].some(value => this.releaseKey(value) === key));
     }
 
     subtitlesFromStream(stream) {
