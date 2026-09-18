@@ -25,12 +25,8 @@ const original=p.requestJson.bind(p);const requested=[];
 prefs.stremio_stream_manifest_urls='https://example.com/config/manifest.json';
 p.requestJson=async url=>{requested.push(url);return url.endsWith('manifest.json')?{resources:['stream']}:{streams:[{url:'https://example.com/video.mp4'}]};};
 assert.equal((await p.getVideoList(eps[11].url)).length,1);
-assert(requested.includes('https://example.com/config/stream/series/mal:16498:1.json'));
+assert.deepEqual(requested, ['https://example.com/config/manifest.json', 'https://example.com/config/stream/series/mal:16498:1.json']);
 p.requestJson=original;
-const video=p.videoFromStream({url:'https://example.com/v.mp4',subtitles:[{url:'https://example.com/en.vtt',lang:'en'},{url:'https://example.com/da.srt',lang:'da'},{url:'https://example.com/en.vtt',lang:'en'},null,{url:'file:///tmp/sub.srt'},{url:'http://127.0.0.1/sub.srt'}]},'Test',p.readSettings());
-assert.equal(video.subtitles.length,2);assert.equal(video.subtitles[0].file,'https://example.com/en.vtt');assert.equal(video.subtitles[1].label,'da');
-assert.equal(p.videoFromStream({url:'https://example.com/v.mp4'},'Test',p.readSettings()).subtitles.length,0);
-console.log('PASS: subtitle forwarding, filtering and deduplication; no invented embedded tracks.');
 console.log('PASS: separate stable titles, local numbering, aired episodes, movies, missing mappings, legacy rejection, MAL stream routing.');
 if(process.argv.includes('--live')) {
  const result=await p.search((await p.getDetail(p.packRef({kind:'anilist',id:20958}))).name,1,[]);
@@ -38,10 +34,10 @@ if(process.argv.includes('--live')) {
  const season=result.list.find(x=>p.unpackRef(x.link).id===20958);assert(season);
  const detail=await p.getDetail(season.link);assert.equal(detail.episodes.length,12);
  const first=detail.episodes.at(-1);assert.equal(first.name,'Episode 1');assert.equal(p.unpackRef(first.url).id,'mal:25777:1');
- const mha=await p.getDetail(p.packRef({kind:'anilist',id:104276}));
- assert.equal(mha.episodes.length,25);
- assert.equal(mha.episodes.at(-1).name,'Episode 1');
- assert.equal(p.unpackRef(mha.episodes.at(-1).url).id,'mal:38408:1');
+ const otherEntry=await p.getDetail(p.packRef({kind:'anilist',id:104276}));
+ assert.equal(otherEntry.episodes.length,25);
+ assert.equal(otherEntry.episodes.at(-1).name,'Episode 1');
+ assert.equal(p.unpackRef(otherEntry.episodes.at(-1).url).id,'mal:38408:1');
  console.log('PASS live: mapped anime entry -> 25 episodes -> mal:38408:1');
  console.log('PASS live: AniList search -> mapped anime entry -> 12 episodes -> mal:25777:1');
 }
@@ -49,31 +45,3 @@ if(process.argv.includes('--live')) {
 assert.equal(p.streamQuality({name:"AIO 1080p",description:"Release title"},"AIOStreams","https://example.com/2160p.mp4"),"AIO 1080p - Release title - [AIOStreams]");
 assert.equal(p.streamQuality({name:"Original name"},"","https://example.com/1080p.mp4"),"Original name");
 console.log("PASS: source names preserve AIOStreams resolution without adding a prefix.");
-const savedJson=p.requestJson.bind(p);
-const subtitleManifest={resources:[{name:'subtitles',types:['series'],idPrefixes:['tt']}]};
-const calls=[];
-p.requestJson=async url=>{calls.push(url);return url.includes('/api/v1/anime')?{data:{mappings:{imdbId:'tt5626028'},imdb:{seasonNumber:4,fromEpisode:1}}}:{subtitles:[{url:'https://example.com/sub.vtt',lang:'en'}]};};
-const external=await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'});
-assert.equal(external.length,1);assert.equal(calls[1],'https://example.com/config/subtitles/series/tt5626028:4:7.json');
-p.requestJson=async()=>({data:{mappings:{imdbId:'tt5626028'},tvdb:{seasonNumber:4},imdb:{}}});
-assert.equal((await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'})).length,0);
-p.requestJson=async()=>{throw Error('subtitle provider unavailable');};
-assert.equal((await p.episodeSubtitles('https://example.com/config',subtitleManifest,{type:'series',id:'mal:38408:7'})).length,0);
-p.requestJson=savedJson;
-console.log('PASS: separate subtitles resource, IMDb season/episode mapping, no TVDB guessing, optional-provider failure.');
-
-const candidateTracks=[
- {url:'https://example.com/a.srt',subtitleFileName:'[Group-A] Series.S04E07.1080p.srt'},
- {url:'https://example.com/b.srt',movieReleaseName:'[Group-B] Series.S04E07.720p'},
- {url:'https://example.com/c.srt',subtitleFileName:'[Group-A] Series.S04E08.1080p.srt'},
- {url:'https://example.com/d.srt',lang:'en'},
- null
-];
-const sourceA={behaviorHints:{filename:'[Group-A] Series.S04E07.1080p.mkv'}};
-const sourceB={behaviorHints:{filename:'[Group-B] Series.S04E07.720p.mkv'}};
-assert.equal(p.matchSubtitles(sourceA,candidateTracks).length,1);
-assert.equal(p.matchSubtitles(sourceA,candidateTracks)[0].url,'https://example.com/a.srt');
-assert.equal(p.matchSubtitles(sourceB,candidateTracks)[0].url,'https://example.com/b.srt');
-assert.equal(p.matchSubtitles({},candidateTracks).length,0);
-assert.equal(p.matchSubtitles({behaviorHints:{filename:'Unknown.mkv'}},candidateTracks).length,0);
-console.log('PASS: release matching keeps sources separate and excludes mismatched episodes, groups and unknown files.');

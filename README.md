@@ -27,8 +27,3 @@ Run `node tools/anilist-test.mjs` for regression tests, or add `--live` for AniL
 Direct HTTP(S) playback only. Never commit personal manifest URLs or API keys.
 
 AnymeX 3.1.7 itself splits 13–50 episodes into groups of 12. Select **All** to show the entire season. Removing those interval buttons requires an app change, not an extension setting.
-
-## Subtitle counts
-The CC badge counts external subtitle files supplied for a stream. Additional episode-level candidates are only attached when their subtitle filename or release name matches that stream's filename, ignoring case, separators and file extensions. Different episodes, groups, resolutions and checksums are not treated as matches. Stream-provided subtitle URLs are preserved.
-
-Without a filename or a matching candidate, no extra subtitles are attached. CC 0 does not prove that the video has no embedded subtitles: the extension does not download or probe every video to inspect embedded tracks. Filename matching also cannot guarantee timing when release metadata is incorrect.
