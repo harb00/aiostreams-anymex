@@ -45,3 +45,23 @@ if(process.argv.includes('--live')) {
 assert.equal(p.streamQuality({name:"AIO 1080p",description:"Release title"},"AIOStreams","https://example.com/2160p.mp4"),"AIO 1080p - Release title - [AIOStreams]");
 assert.equal(p.streamQuality({name:"Original name"},"","https://example.com/1080p.mp4"),"Original name");
 console.log("PASS: source names preserve AIOStreams resolution without adding a prefix.");
+const savedRequest=p.requestJson.bind(p);
+const requests=[];
+p.manifestCache={};
+p.requestJson=async url=>{
+ requests.push(url);
+ if(url.endsWith('/manifest.json'))return {resources:['stream',{name:'subtitles',types:['series'],idPrefixes:['tt']}]};
+ if(url.includes('/api/v1/anime'))return {data:{mappings:{imdbId:'tt123'},imdb:{seasonNumber:2,fromEpisode:13}}};
+ if(url.includes('/subtitles/'))return {subtitles:[{url:'https://example.com/sub.srt',lang:'en',subtitleFileName:'Release-A.srt'},null,{url:'file:///private/sub.srt'}]};
+ return {streams:[{url:'https://example.com/a.mp4',subtitles:[{url:'https://example.com/sub.srt',lang:'en',subtitleFileName:'Release-A.srt'}]},{url:'https://example.com/b.mp4'}]};
+};
+const withSubs=await p.getVideoList(eps.at(-1).url);
+assert.equal(withSubs.length,2);
+for(const v of withSubs){assert.equal(v.subtitles.length,1);assert.equal(v.subtitles[0].label,'en — Release-A.srt');assert.equal(v.subtitles[0].file,'https://example.com/sub.srt');}
+assert(requests.includes('https://example.com/config/subtitles/series/tt123:2:13.json'));
+const workingRequest=p.requestJson;
+p.requestJson=async url=>{if(url.includes('/subtitles/'))throw Error('Unavailable');return workingRequest(url);};
+const withoutLookup=await p.getVideoList(eps.at(-1).url);
+assert.equal(withoutLookup.length,2);assert.equal(withoutLookup[0].subtitles.length,1);assert.equal(withoutLookup[1].subtitles.length,0);
+p.requestJson=savedRequest;
+console.log('PASS: Source subtitles, release labels, deduplication, episode offset and playback when subtitle lookup fails.');

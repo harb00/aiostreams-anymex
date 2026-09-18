@@ -10,7 +10,7 @@ const mangayomiSources = [
         "itemType": 1,
         "isManga": false,
         "isNsfw": false,
-        "version": "0.2.6",
+        "version": "0.2.7",
         "dateFormat": "",
         "dateFormatLocale": "",
         "pkgPath": "anime/src/all/stremiobridge.js",
@@ -87,9 +87,10 @@ class DefaultExtension extends MProvider {
                 const json = await this.requestJson(streamUrl);
                 const streams = json && Array.isArray(json.streams) ? json.streams : [];
                 const addonName = manifest && manifest.name ? manifest.name : this.hostLabel(baseUrl);
+                const subtitles = streams.length ? await this.episodeSubtitles(baseUrl, manifest, ref) : [];
 
                 for (const stream of streams) {
-                    const video = this.videoFromStream(stream, addonName, settings);
+                    const video = this.videoFromStream(Object.assign({}, stream, { subtitles: (Array.isArray(stream.subtitles) ? stream.subtitles : []).concat(subtitles) }), addonName, settings);
                     if (!video || seen[video.url]) {
                         continue;
                     }
@@ -268,6 +269,50 @@ class DefaultExtension extends MProvider {
         return JSON.parse(response.body);
     }
 
+    async episodeSubtitles(baseUrl, manifest, ref) {
+        const resource = manifest && (manifest.resources || []).find(r =>
+            r === "subtitles" || (r && r.name === "subtitles"));
+        if (!resource || (resource.types && resource.types.indexOf(ref.type) === -1)) return [];
+        try {
+            let id = ref.id;
+            const prefixes = resource.idPrefixes || manifest.idPrefixes;
+            if (prefixes && !prefixes.some(prefix => id.indexOf(prefix) === 0)) {
+                const mal = /^mal:(\d+)(?::(\d+))?$/.exec(id);
+                const origin = /^(https?:\/\/[^/]+)/.exec(baseUrl);
+                if (!mal || !origin || !prefixes.some(prefix => "tt".indexOf(prefix) === 0)) return [];
+                const result = await this.requestJson(origin[1] + "/api/v1/anime?idType=malId&idValue=" + mal[1]);
+                const mapping = result && result.data;
+                if (!mapping || !mapping.mappings || !mapping.mappings.imdbId) return [];
+                id = mapping.mappings.imdbId;
+                if (ref.type === "series") {
+                    const imdb = mapping.imdb;
+                    // Do not substitute TVDB season numbers: IMDb boundaries may differ.
+                    if (!imdb || !Number.isInteger(imdb.seasonNumber) ||
+                        !Number.isInteger(imdb.fromEpisode) || !mal[2]) return [];
+                    id += ":" + imdb.seasonNumber + ":" + (imdb.fromEpisode + Number(mal[2]) - 1);
+                }
+            }
+            const result = await this.requestJson(this.resourceUrl(baseUrl, "subtitles", ref.type, id, null));
+            return result && Array.isArray(result.subtitles) ? result.subtitles : [];
+        } catch (_) {
+            // Optional subtitle providers must not prevent video playback.
+            return [];
+        }
+    }
+
+    subtitlesFromStream(stream) {
+        const seen = {};
+        return (Array.isArray(stream.subtitles) ? stream.subtitles : []).reduce((tracks, sub) => {
+            const file = sub && typeof sub.url === "string" ? this.absoluteUrl(sub.url) : "";
+            if (!/^https?:\/\//i.test(file) || this.isLocalUrl(file) || seen[file]) return tracks;
+            seen[file] = true;
+            const language = this.cleanText(sub.lang || sub.label || "Unknown");
+            const release = this.cleanText(sub.subtitleFileName || sub.movieReleaseName || "");
+            tracks.push({ file, label: language + (release ? " — " + release : "") });
+            return tracks;
+        }, []);
+    }
+
     videoFromStream(stream, addonName, settings) {
         if (!stream || stream.magnet || stream.nzbUrl || stream.rarUrls || stream.zipUrls || stream.externalUrl) {
             return null;
@@ -286,7 +331,8 @@ class DefaultExtension extends MProvider {
         const video = {
             url,
             originalUrl: url,
-            quality
+            quality,
+            subtitles: this.subtitlesFromStream(stream)
         };
         if (headers) {
             video.headers = headers;

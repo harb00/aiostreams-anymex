@@ -27,3 +27,8 @@ Run `node tools/anilist-test.mjs` for regression tests, or add `--live` for AniL
 Direct HTTP(S) playback only. Never commit personal manifest URLs or API keys.
 
 AnymeX 3.1.7 itself splits 13–50 episodes into groups of 12. Select **All** to show the entire season. Removing those interval buttons requires an app change, not an extension setting.
+
+## External subtitles
+The player’s **Source** subtitle tab includes subtitle files supplied by streams and episode-level candidates fetched from the configured AIOStreams subtitle providers. Language and release/filename are shown when available. AIOStreams must have a subtitle provider configured. IMDb-only providers use the instance’s explicit anime mapping; unavailable mappings and failed subtitle lookups do not block playback.
+
+The same episode candidates are available for each video source. The **CC** badge counts these external choices, not embedded tracks or verified release matches. Select a candidate appropriate to the release; timing may differ. AnymeX may automatically select a subtitle according to its player settings. This feature does not fix invisible embedded subtitles or libass rendering issues.
